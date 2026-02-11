@@ -135,25 +135,37 @@ export default function Home() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="relative bg-white rounded-lg border overflow-hidden">
-                  {displayImage ? (
+                <div className="relative bg-white rounded-lg border overflow-hidden min-h-[400px] flex items-center justify-center">
+                  {selectedHistory?.status === "processing" ? (
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 flex flex-col items-center justify-center">
+                      <div className="text-center space-y-4">
+                        <div className="relative">
+                          <Loader2 className="w-16 h-16 animate-spin text-primary mx-auto" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <ImageIcon className="w-8 h-8 text-primary/30" />
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-lg font-medium text-foreground">正在生成图片...</p>
+                          <p className="text-sm text-muted-foreground mt-1">通常需要5-20秒,请耐心等待</p>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                          <span>正在调用阿里云百炼 API...</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : displayImage ? (
                     <img
                       src={displayImage}
                       alt="设计图纸"
                       className="w-full h-auto"
                     />
                   ) : (
-                    <div className="aspect-video flex items-center justify-center text-muted-foreground">
-                      <Loader2 className="w-8 h-8 animate-spin" />
-                    </div>
-                  )}
-                  {selectedHistory?.status === "processing" && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <div className="text-white text-center">
-                        <Loader2 className="w-12 h-12 animate-spin mx-auto mb-2" />
-                        <p>正在生成图片,请稍候...</p>
-                        <p className="text-sm text-white/80 mt-1">通常需要5-20秒</p>
-                      </div>
+                    <div className="flex flex-col items-center justify-center text-muted-foreground space-y-3">
+                      <ImageIcon className="w-16 h-16 text-muted-foreground/30" />
+                      <p className="text-sm">正在加载基础图纸...</p>
+                      <Loader2 className="w-6 h-6 animate-spin" />
                     </div>
                   )}
                 </div>

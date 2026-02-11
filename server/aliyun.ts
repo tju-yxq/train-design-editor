@@ -153,7 +153,7 @@ export function generateEditPrompt(changes: Record<string, any>, allParams: Reco
     return `${desc}: ${value}${unit}`;
   }).join(', ');
 
-  return `请根据以下参数修改高铁车头工程图纸:
+  return `在保持完整列车侧视图的基础上,根据以下参数修改车头部分的工程图纸:
 
 修改参数: ${changeDescriptions}
 
@@ -176,13 +176,15 @@ export function generateEditPrompt(changes: Record<string, any>, allParams: Reco
 - 车钩中心高度: ${allParams.couplerHeight}mm
 - 标准轨距: ${allParams.railGauge}mm
 
-要求:
-1. 保持工程制图规范,正交投影,无透视
-2. 纯白背景,单色灰度车身
-3. 清晰外部轮廓线,无阴影无反光
-4. 侧视图:连续样条曲线定义轮廓,车窗均匀分布
-5. 保持车头流线型设计
-6. 严格按照给定参数修改图纸`;
+重要要求:
+1. 必须保持完整的列车侧视图,包括车头、中间车厢和车尾,不能只显示车头部分
+2. 只修改车头部分的尺寸和形状,保持其他部分不变
+3. 保持工程制图规范,正交投影,无透视
+4. 纯白背景,单色灰度车身
+5. 清晰外部轮廓线,无阴影无反光
+6. 侧视图:连续样条曲线定义轮廓,车窗均匀分布
+7. 保持车头流线型设计
+8. 严格按照给定参数修改图纸`;
 }
 
 /**

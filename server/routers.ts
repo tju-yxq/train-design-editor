@@ -69,25 +69,51 @@ export const appRouter = router({
           // 2. 解析用户输入
           const parsedChanges = await parseParametersWithQwen(input.userInput);
 
-          // 3. 合并参数
+          // 3. 计算实际参数值(处理相对变化)
+          const actualChanges: Record<string, any> = {};
+          for (const [key, value] of Object.entries(parsedChanges)) {
+            if (typeof value === 'string' && value.includes('+')) {
+              // 处理相对增加: "trainHeadLength + 1000"
+              const match = value.match(/([a-zA-Z]+)\s*\+\s*(\d+)/);
+              if (match && match[1] === key) {
+                const increment = parseInt(match[2]!, 10);
+                actualChanges[key] = (currentParams[key as keyof typeof currentParams] as number) + increment;
+              } else {
+                actualChanges[key] = value;
+              }
+            } else if (typeof value === 'string' && value.includes('-')) {
+              // 处理相对减少: "trainHeadLength - 500"
+              const match = value.match(/([a-zA-Z]+)\s*-\s*(\d+)/);
+              if (match && match[1] === key) {
+                const decrement = parseInt(match[2]!, 10);
+                actualChanges[key] = (currentParams[key as keyof typeof currentParams] as number) - decrement;
+              } else {
+                actualChanges[key] = value;
+              }
+            } else {
+              actualChanges[key] = value;
+            }
+          }
+
+          // 4. 合并参数
           const updatedParams = {
             ...currentParams,
-            ...parsedChanges,
+            ...actualChanges,
           };
 
-          // 4. 创建历史记录(状态为processing)
+          // 5. 创建历史记录(状态为processing)
           const history = await createEditHistory({
             userId: ctx.user.id,
             userInput: input.userInput,
-            parsedChanges: JSON.stringify(parsedChanges),
+            parsedChanges: JSON.stringify(actualChanges),
             parametersSnapshot: JSON.stringify(updatedParams),
             status: 'processing',
           });
 
-          // 5. 异步生成图片
+          // 6. 异步生成图片
           (async () => {
             try {
-              const prompt = generateEditPrompt(parsedChanges, updatedParams);
+              const prompt = generateEditPrompt(actualChanges, updatedParams);
               const imageUrl = await editImageWithQwen(prompt, ENV.baseImageUrl);
 
               // 更新历史记录
@@ -96,8 +122,8 @@ export const appRouter = router({
                 status: 'completed',
               });
 
-              // 更新设计参数
-              await updateDesignParameters(currentParams.id, parsedChanges);
+              // 更新设计参数(使用外层已计算好的actualChanges)
+              await updateDesignParameters(currentParams.id, actualChanges);
             } catch (error: any) {
               console.error('[Design] Failed to generate image:', error);
               await updateEditHistory(history.id, {

@@ -1,6 +1,6 @@
 import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, designParameters, editHistory, DesignParameters, InsertDesignParameters, EditHistory, InsertEditHistory } from "../drizzle/schema";
+import { InsertUser, users, designParameters, editHistory, designSessions, DesignParameters, InsertDesignParameters, EditHistory, InsertEditHistory, DesignSession, InsertDesignSession } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -169,20 +169,102 @@ export async function getEditHistoryById(id: number): Promise<EditHistory | unde
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function getLatestSuccessfulImage(userId: number): Promise<string | null> {
+export async function getLatestSuccessfulImage(userId: number, sessionId?: number): Promise<string | null> {
   const db = await getDb();
   if (!db) {
     throw new Error("Database not available");
   }
 
   const { and } = await import('drizzle-orm');
+  const conditions = [
+    eq(editHistory.userId, userId),
+    eq(editHistory.status, 'completed')
+  ];
+  
+  if (sessionId !== undefined) {
+    conditions.push(eq(editHistory.sessionId, sessionId));
+  }
+  
   const result = await db.select().from(editHistory)
-    .where(and(
-      eq(editHistory.userId, userId),
-      eq(editHistory.status, 'completed')
-    ))
+    .where(and(...conditions))
     .orderBy(desc(editHistory.createdAt))
     .limit(1);
   
   return result.length > 0 && result[0]?.generatedImageUrl ? result[0].generatedImageUrl : null;
+}
+
+// Design Session helpers
+export async function createDesignSession(data: InsertDesignSession): Promise<DesignSession> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  // 如果这是活跃会话,先取消其他活跃会话
+  if (data.isActive === 1) {
+    await db.update(designSessions)
+      .set({ isActive: 0 })
+      .where(eq(designSessions.userId, data.userId));
+  }
+
+  const [result] = await db.insert(designSessions).values(data);
+  const created = await db.select().from(designSessions).where(eq(designSessions.id, result.insertId)).limit(1);
+  return created[0]!;
+}
+
+export async function getUserSessions(userId: number): Promise<DesignSession[]> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  return await db.select().from(designSessions)
+    .where(eq(designSessions.userId, userId))
+    .orderBy(desc(designSessions.updatedAt));
+}
+
+export async function getActiveSession(userId: number): Promise<DesignSession | null> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const { and } = await import('drizzle-orm');
+  const result = await db.select().from(designSessions)
+    .where(and(
+      eq(designSessions.userId, userId),
+      eq(designSessions.isActive, 1)
+    ))
+    .limit(1);
+  
+  return result.length > 0 ? result[0]! : null;
+}
+
+export async function setActiveSession(userId: number, sessionId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  // 取消所有活跃会话
+  await db.update(designSessions)
+    .set({ isActive: 0 })
+    .where(eq(designSessions.userId, userId));
+  
+  // 设置新的活跃会话
+  await db.update(designSessions)
+    .set({ isActive: 1 })
+    .where(eq(designSessions.id, sessionId));
+}
+
+export async function getSessionHistory(sessionId: number, limit: number = 50): Promise<EditHistory[]> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  return await db.select().from(editHistory)
+    .where(eq(editHistory.sessionId, sessionId))
+    .orderBy(desc(editHistory.createdAt))
+    .limit(limit);
 }

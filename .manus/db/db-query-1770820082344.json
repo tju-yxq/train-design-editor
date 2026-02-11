@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE edit_history ADD COLUMN session_id INT AFTER user_id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26C8jqCCYDnQ76e.root --database f86J2ktq3dJqDrKkHFJRQZ --execute ALTER TABLE edit_history ADD COLUMN session_id INT AFTER user_id;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2322
+}

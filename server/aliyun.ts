@@ -249,7 +249,7 @@ export async function editImageWithQwen(prompt: string, imageUrl: string): Promi
           'Authorization': `Bearer ${ENV.aliyunImageApiKey}`,
           'Content-Type': 'application/json',
         },
-        timeout: 60000,
+        timeout: 180000, // 3分钟超时,图像编辑需要较长时间
       }
     );
 

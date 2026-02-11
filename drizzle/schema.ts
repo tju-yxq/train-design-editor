@@ -75,12 +75,34 @@ export type DesignParameters = typeof designParameters.$inferSelect;
 export type InsertDesignParameters = typeof designParameters.$inferInsert;
 
 /**
+ * 设计会话表
+ * 每个会话代表一个独立的设计流程,从基础图片开始
+ */
+export const designSessions = mysqlTable("design_sessions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull().references(() => users.id),
+  // 会话名称
+  sessionName: varchar("session_name", { length: 255 }).notNull(),
+  // 会话描述
+  description: text("description"),
+  // 是否为当前活跃会话
+  isActive: int("is_active").default(0).notNull(), // 0=false, 1=true
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DesignSession = typeof designSessions.$inferSelect;
+export type InsertDesignSession = typeof designSessions.$inferInsert;
+
+/**
  * 编辑历史记录表
  * 存储每次修改的详细信息和生成的图片
  */
 export const editHistory = mysqlTable("edit_history", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("user_id").notNull().references(() => users.id),
+  // 所属设计会话
+  sessionId: int("session_id").notNull().references(() => designSessions.id),
   // 用户输入的自然语言描述
   userInput: text("user_input").notNull(),
   // 解析后的参数变更JSON

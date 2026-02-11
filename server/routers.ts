@@ -3,15 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { 
-  getOrCreateDesignParameters, 
-  updateDesignParameters, 
-  createEditHistory, 
-  updateEditHistory, 
-  getUserEditHistory,
-  getEditHistoryById,
-  getLatestSuccessfulImage
-} from "./db";
+import { getOrCreateDesignParameters, updateDesignParameters, createEditHistory, updateEditHistory, getUserEditHistory, getEditHistoryById, getLatestSuccessfulImage, createDesignSession, getUserSessions, getActiveSession, setActiveSession, getSessionHistory } from './db';
 import { parseParametersWithQwen, generateEditPrompt, editImageWithQwen } from "./aliyun";
 import { ENV } from "./_core/env";
 
@@ -35,13 +27,60 @@ export const appRouter = router({
       return await getOrCreateDesignParameters(ctx.user.id);
     }),
 
-    // 获取编辑历史
+    // 获取历史记录(根据活跃会话)
     getHistory: protectedProcedure
       .input(z.object({
         limit: z.number().optional().default(50),
+        sessionId: z.number().optional(),
       }))
       .query(async ({ ctx, input }) => {
-        return await getUserEditHistory(ctx.user.id, input.limit);
+        if (input.sessionId) {
+          return await getSessionHistory(input.sessionId, input.limit);
+        }
+        // 如果没有指定sessionId,返回活跃会话的历史
+        const activeSession = await getActiveSession(ctx.user.id);
+        if (activeSession) {
+          return await getSessionHistory(activeSession.id, input.limit);
+        }
+        return [];
+      }),
+
+    // 获取所有会话
+    getSessions: protectedProcedure
+      .query(async ({ ctx }) => {
+        return await getUserSessions(ctx.user.id);
+      }),
+
+    // 获取活跃会话
+    getActiveSession: protectedProcedure
+      .query(async ({ ctx }) => {
+        return await getActiveSession(ctx.user.id);
+      }),
+
+    // 创建新会话
+    createSession: protectedProcedure
+      .input(z.object({
+        sessionName: z.string().min(1, '请输入会话名称'),
+        description: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await createDesignSession({
+          userId: ctx.user.id,
+          sessionName: input.sessionName,
+          description: input.description,
+          isActive: 1, // 新创建的会话自动成为活跃会话
+        });
+        return session;
+      }),
+
+    // 切换活跃会话
+    setActiveSession: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await setActiveSession(ctx.user.id, input.sessionId);
+        return { success: true };
       }),
 
     // 获取单条历史记录
@@ -64,13 +103,24 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         try {
-          // 1. 获取当前参数
+          // 1. 获取或创建活跃会话
+          let activeSession = await getActiveSession(ctx.user.id);
+          if (!activeSession) {
+            // 如果没有活跃会话,创建默认会话
+            activeSession = await createDesignSession({
+              userId: ctx.user.id,
+              sessionName: `设计会话 ${new Date().toLocaleString('zh-CN')}`,
+              isActive: 1,
+            });
+          }
+
+          // 2. 获取当前参数
           const currentParams = await getOrCreateDesignParameters(ctx.user.id);
 
-          // 2. 解析用户输入
+          // 3. 解析用户输入
           const parsedChanges = await parseParametersWithQwen(input.userInput);
 
-          // 3. 计算实际参数值(处理相对变化)
+          // 4. 计算实际参数值(处理相对变化)
           const actualChanges: Record<string, any> = {};
           for (const [key, value] of Object.entries(parsedChanges)) {
             if (typeof value === 'string' && value.includes('+')) {
@@ -96,15 +146,16 @@ export const appRouter = router({
             }
           }
 
-          // 4. 合并参数
+          // 5. 合并参数
           const updatedParams = {
             ...currentParams,
             ...actualChanges,
           };
 
-          // 5. 创建历史记录(状态为processing)
+          // 6. 创建历史记录(状态为processing)
           const history = await createEditHistory({
             userId: ctx.user.id,
+            sessionId: activeSession.id,
             userInput: input.userInput,
             parsedChanges: JSON.stringify(actualChanges),
             parametersSnapshot: JSON.stringify(updatedParams),

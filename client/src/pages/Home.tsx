@@ -8,13 +8,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect } from "react";
-import { Loader2, Send, History, Image as ImageIcon, ArrowRight, Sparkles } from "lucide-react";
+import { Loader2, Send, History, Image as ImageIcon, ArrowRight, Sparkles, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Home() {
   const { user, loading: authLoading, isAuthenticated } = useAuth();
   const [userInput, setUserInput] = useState("");
   const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
+  const [showNewSessionDialog, setShowNewSessionDialog] = useState(false);
+  const [newSessionName, setNewSessionName] = useState("");
 
   // 获取基础图片
   const { data: baseImageData } = trpc.design.getBaseImage.useQuery();
@@ -25,11 +27,50 @@ export default function Home() {
     { enabled: isAuthenticated, refetchInterval: 3000 }
   );
 
-  // 获取历史记录
+  // 获取活跃会话
+  const { data: activeSession, refetch: refetchActiveSession } = trpc.design.getActiveSession.useQuery(
+    undefined,
+    { enabled: isAuthenticated, refetchInterval: 3000 }
+  );
+
+  // 获取所有会话
+  const { data: sessions, refetch: refetchSessions } = trpc.design.getSessions.useQuery(
+    undefined,
+    { enabled: isAuthenticated }
+  );
+
+  // 获取历史记录(根据活跃会话)
   const { data: history, refetch: refetchHistory } = trpc.design.getHistory.useQuery(
     { limit: 50 },
     { enabled: isAuthenticated, refetchInterval: 3000 } // 每3秒轮询一次
   );
+
+  // 创建新会话
+  const createSession = trpc.design.createSession.useMutation({
+    onSuccess: () => {
+      toast.success("新会话创建成功");
+      setShowNewSessionDialog(false);
+      setNewSessionName("");
+      refetchSessions();
+      refetchActiveSession();
+      refetchHistory();
+    },
+    onError: (error) => {
+      toast.error("创建失败", { description: error.message });
+    },
+  });
+
+  // 切换会话
+  const setActiveSessionMutation = trpc.design.setActiveSession.useMutation({
+    onSuccess: () => {
+      toast.success("已切换会话");
+      refetchActiveSession();
+      refetchHistory();
+    },
+    onError: (error) => {
+      toast.error("切换失败", { description: error.message });
+    },
+  });
 
   // 提交编辑
   const submitEdit = trpc.design.submitEdit.useMutation({
@@ -51,7 +92,10 @@ export default function Home() {
   // 自动选择最新的历史记录
   useEffect(() => {
     if (history && history.length > 0 && !selectedHistoryId) {
-      setSelectedHistoryId(history[0]!.id);
+      const firstItem = history[0];
+      if (firstItem && firstItem.id) {
+        setSelectedHistoryId(firstItem.id);
+      }
     }
   }, [history, selectedHistoryId]);
 
@@ -271,6 +315,94 @@ export default function Home() {
               </CardContent>
             </Card>
 
+            {/* 会话管理 */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <FolderOpen className="w-5 h-5" />
+                      设计会话
+                    </CardTitle>
+                    <CardDescription>
+                      {activeSession ? activeSession.sessionName : "暂无活跃会话"}
+                    </CardDescription>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowNewSessionDialog(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    新建会话
+                  </Button>
+                </div>
+              </CardHeader>
+              {showNewSessionDialog && (
+                <CardContent className="space-y-3 border-t pt-4">
+                  <input
+                    type="text"
+                    placeholder="输入会话名称"
+                    value={newSessionName}
+                    onChange={(e) => setNewSessionName(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (newSessionName.trim()) {
+                          createSession.mutate({ sessionName: newSessionName.trim() });
+                        } else {
+                          toast.error("请输入会话名称");
+                        }
+                      }}
+                      disabled={createSession.isPending}
+                    >
+                      {createSession.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "创建"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setShowNewSessionDialog(false);
+                        setNewSessionName("");
+                      }}
+                    >
+                      取消
+                    </Button>
+                  </div>
+                </CardContent>
+              )}
+              {sessions && sessions.length > 1 && (
+                <CardContent className="border-t">
+                  <ScrollArea className="h-[150px]">
+                    <div className="space-y-2">
+                      {sessions.map((session) => (
+                        <div
+                          key={session.id}
+                          className={`p-2 rounded-lg border cursor-pointer transition-colors ${
+                            activeSession?.id === session.id
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                          onClick={() => {
+                            if (activeSession?.id !== session.id) {
+                              setActiveSessionMutation.mutate({ sessionId: session.id });
+                            }
+                          }}
+                        >
+                          <p className="text-sm font-medium">{session.sessionName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(session.createdAt).toLocaleString("zh-CN")}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              )}
+            </Card>
+
             {/* 历史记录 */}
             <Card>
               <CardHeader>
@@ -278,34 +410,37 @@ export default function Home() {
                   <History className="w-5 h-5" />
                   修改历史
                 </CardTitle>
-                <CardDescription>查看所有修改记录</CardDescription>
+                <CardDescription>当前会话的修改记录</CardDescription>
               </CardHeader>
               <CardContent>
                 <ScrollArea className="h-[400px] pr-4">
                   {history && history.length > 0 ? (
                     <div className="space-y-3">
-                      {history.map((item) => (
-                        <div
-                          key={item.id}
-                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                            selectedHistoryId === item.id
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/50"
-                          }`}
-                          onClick={() => setSelectedHistoryId(item.id)}
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <p className="text-sm font-medium line-clamp-2">{item.userInput}</p>
-                            <StatusBadge status={item.status} />
+                      {history.map((item) => {
+                        if (!item || !item.id) return null; // 防止空值
+                        return (
+                          <div
+                            key={`history-${item.id}-${item.createdAt}`} // 使用复合key提高稳定性
+                            className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                              selectedHistoryId === item.id
+                                ? "border-primary bg-primary/5"
+                                : "border-border hover:border-primary/50"
+                            }`}
+                            onClick={() => setSelectedHistoryId(item.id)}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <p className="text-sm font-medium line-clamp-2">{item.userInput || '未知修改'}</p>
+                              <StatusBadge status={item.status} />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(item.createdAt).toLocaleString("zh-CN")}
+                            </p>
+                            {item.errorMessage && (
+                              <p className="text-xs text-destructive mt-1">{item.errorMessage}</p>
+                            )}
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(item.createdAt).toLocaleString("zh-CN")}
-                          </p>
-                          {item.errorMessage && (
-                            <p className="text-xs text-destructive mt-1">{item.errorMessage}</p>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">

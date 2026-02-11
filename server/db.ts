@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, designParameters, editHistory, DesignParameters, InsertDesignParameters, EditHistory, InsertEditHistory } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,82 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Design Parameters helpers
+export async function getOrCreateDesignParameters(userId: number): Promise<DesignParameters> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const existing = await db.select().from(designParameters).where(eq(designParameters.userId, userId)).limit(1);
+  
+  if (existing.length > 0) {
+    return existing[0]!;
+  }
+
+  // Create default parameters
+  const [newParams] = await db.insert(designParameters).values({
+    userId,
+  });
+
+  const created = await db.select().from(designParameters).where(eq(designParameters.id, newParams.insertId)).limit(1);
+  return created[0]!;
+}
+
+export async function updateDesignParameters(id: number, updates: Partial<InsertDesignParameters>): Promise<DesignParameters> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  await db.update(designParameters).set(updates).where(eq(designParameters.id, id));
+  
+  const updated = await db.select().from(designParameters).where(eq(designParameters.id, id)).limit(1);
+  return updated[0]!;
+}
+
+// Edit History helpers
+export async function createEditHistory(data: InsertEditHistory): Promise<EditHistory> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const [result] = await db.insert(editHistory).values(data);
+  const created = await db.select().from(editHistory).where(eq(editHistory.id, result.insertId)).limit(1);
+  return created[0]!;
+}
+
+export async function updateEditHistory(id: number, updates: Partial<InsertEditHistory>): Promise<EditHistory> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  await db.update(editHistory).set(updates).where(eq(editHistory.id, id));
+  
+  const updated = await db.select().from(editHistory).where(eq(editHistory.id, id)).limit(1);
+  return updated[0]!;
+}
+
+export async function getUserEditHistory(userId: number, limit: number = 50): Promise<EditHistory[]> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  return await db.select().from(editHistory)
+    .where(eq(editHistory.userId, userId))
+    .orderBy(desc(editHistory.createdAt))
+    .limit(limit);
+}
+
+export async function getEditHistoryById(id: number): Promise<EditHistory | undefined> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const result = await db.select().from(editHistory).where(eq(editHistory.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}

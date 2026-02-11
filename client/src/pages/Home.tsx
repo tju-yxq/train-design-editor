@@ -1,31 +1,305 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { getLoginUrl } from "@/const";
-import { Streamdown } from 'streamdown';
+import { trpc } from "@/lib/trpc";
+import { useState, useEffect } from "react";
+import { Loader2, Send, History, Image as ImageIcon, ArrowRight, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
- */
 export default function Home() {
-  // The userAuth hooks provides authentication state
-  // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
-  let { user, loading, error, isAuthenticated, logout } = useAuth();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const [userInput, setUserInput] = useState("");
+  const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
 
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+  // 获取基础图片
+  const { data: baseImageData } = trpc.design.getBaseImage.useQuery();
+
+  // 获取当前参数
+  const { data: parameters } = trpc.design.getParameters.useQuery(
+    undefined,
+    { enabled: isAuthenticated }
+  );
+
+  // 获取历史记录
+  const { data: history, refetch: refetchHistory } = trpc.design.getHistory.useQuery(
+    { limit: 50 },
+    { enabled: isAuthenticated, refetchInterval: 3000 } // 每3秒轮询一次
+  );
+
+  // 提交编辑
+  const submitEdit = trpc.design.submitEdit.useMutation({
+    onSuccess: (data) => {
+      toast.success("提交成功,正在生成图片...", {
+        description: `识别到的参数变更: ${JSON.stringify(data.parsedChanges)}`,
+      });
+      setUserInput("");
+      setSelectedHistoryId(data.historyId);
+      refetchHistory();
+    },
+    onError: (error) => {
+      toast.error("提交失败", {
+        description: error.message,
+      });
+    },
+  });
+
+  // 自动选择最新的历史记录
+  useEffect(() => {
+    if (history && history.length > 0 && !selectedHistoryId) {
+      setSelectedHistoryId(history[0]!.id);
+    }
+  }, [history, selectedHistoryId]);
+
+  const handleSubmit = () => {
+    if (!userInput.trim()) {
+      toast.error("请输入修改描述");
+      return;
+    }
+    submitEdit.mutate({ userInput });
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+              <Sparkles className="w-8 h-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl">高铁设计图纸编辑系统</CardTitle>
+            <CardDescription>
+              通过自然语言描述修改高铁车头设计参数,实时生成工程图纸
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button className="w-full" size="lg" asChild>
+              <a href={getLoginUrl()}>
+                登录开始使用
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </a>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const selectedHistory = history?.find(h => h.id === selectedHistoryId);
+  const displayImage = selectedHistory?.generatedImageUrl || baseImageData?.url;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Header */}
+      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="container py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-primary" />
+            <h1 className="text-xl font-bold">高铁设计图纸编辑系统</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">欢迎, {user?.name}</span>
+          </div>
+        </div>
+      </header>
+
+      <div className="container py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* 左侧: 图片展示和参数面板 */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* 图片展示 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5" />
+                  设计图纸
+                </CardTitle>
+                <CardDescription>
+                  {selectedHistory ? (
+                    selectedHistory.status === "completed" ? "已生成" :
+                    selectedHistory.status === "processing" ? "生成中..." :
+                    selectedHistory.status === "failed" ? "生成失败" : "等待中"
+                  ) : "基础图纸"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="relative bg-white rounded-lg border overflow-hidden">
+                  {displayImage ? (
+                    <img
+                      src={displayImage}
+                      alt="设计图纸"
+                      className="w-full h-auto"
+                    />
+                  ) : (
+                    <div className="aspect-video flex items-center justify-center text-muted-foreground">
+                      <Loader2 className="w-8 h-8 animate-spin" />
+                    </div>
+                  )}
+                  {selectedHistory?.status === "processing" && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <div className="text-white text-center">
+                        <Loader2 className="w-12 h-12 animate-spin mx-auto mb-2" />
+                        <p>正在生成图片,请稍候...</p>
+                        <p className="text-sm text-white/80 mt-1">通常需要5-20秒</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 参数面板 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>当前参数</CardTitle>
+                <CardDescription>车头设计的关键参数</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {parameters ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <ParamItem label="车头长度" value={parameters.trainHeadLength} unit="mm" />
+                    <ParamItem label="车头高度" value={parameters.trainHeadHeight} unit="mm" />
+                    <ParamItem label="驾驶室高度" value={parameters.cabinHeight} unit="mm" />
+                    <ParamItem label="流线型曲率" value={parameters.streamlineCurvature} unit="°" />
+                    <ParamItem label="车窗宽度" value={parameters.windowWidth} unit="mm" />
+                    <ParamItem label="车窗高度" value={parameters.windowHeight} unit="mm" />
+                    <ParamItem label="底盘高度" value={parameters.chassisHeight} unit="mm" />
+                    <ParamItem label="总长度" value={parameters.totalLength} unit="mm" />
+                    <ParamItem label="最大宽度" value={parameters.maxWidth} unit="mm" />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 右侧: 输入和历史记录 */}
+          <div className="space-y-6">
+            {/* 输入框 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>修改描述</CardTitle>
+                <CardDescription>用中文描述您想要的修改</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Textarea
+                  placeholder="例如: 将车头长度增加到11米&#10;例如: 车窗宽度改为1.5米,高度改为1米"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  rows={4}
+                  className="resize-none"
+                />
+                <Button
+                  className="w-full"
+                  onClick={handleSubmit}
+                  disabled={submitEdit.isPending || !userInput.trim()}
+                >
+                  {submitEdit.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 w-4 h-4 animate-spin" />
+                      处理中...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 w-4 h-4" />
+                      提交修改
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* 历史记录 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="w-5 h-5" />
+                  修改历史
+                </CardTitle>
+                <CardDescription>查看所有修改记录</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[400px] pr-4">
+                  {history && history.length > 0 ? (
+                    <div className="space-y-3">
+                      {history.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                            selectedHistoryId === item.id
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                          onClick={() => setSelectedHistoryId(item.id)}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <p className="text-sm font-medium line-clamp-2">{item.userInput}</p>
+                            <StatusBadge status={item.status} />
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(item.createdAt).toLocaleString("zh-CN")}
+                          </p>
+                          {item.errorMessage && (
+                            <p className="text-xs text-destructive mt-1">{item.errorMessage}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <History className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>暂无修改记录</p>
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
     </div>
+  );
+}
+
+function ParamItem({ label, value, unit }: { label: string; value: number; unit: string }) {
+  return (
+    <div className="p-3 rounded-lg bg-muted/50">
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <p className="text-lg font-semibold">
+        {value.toLocaleString()}
+        <span className="text-sm font-normal text-muted-foreground ml-1">{unit}</span>
+      </p>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const variants: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+    pending: { label: "等待中", variant: "secondary" },
+    processing: { label: "生成中", variant: "default" },
+    completed: { label: "已完成", variant: "outline" },
+    failed: { label: "失败", variant: "destructive" },
+  };
+
+  const config = variants[status] || { label: status, variant: "secondary" };
+
+  return (
+    <Badge variant={config.variant} className="shrink-0">
+      {config.label}
+    </Badge>
   );
 }

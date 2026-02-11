@@ -162,12 +162,14 @@ export const appRouter = router({
             status: 'processing',
           });
 
-          // 6. 异步生成图片
+          // 7. 异步生成图片
           (async () => {
             try {
-              // 获取最新成功生成的图片，如果没有则使用基础图片
-              const latestImage = await getLatestSuccessfulImage(ctx.user.id);
+              // 获取当前会话最新成功生成的图片，如果没有则使用基础图片
+              const latestImage = await getLatestSuccessfulImage(ctx.user.id, activeSession.id);
               const baseImage = latestImage || ENV.baseImageUrl;
+              
+              console.log(`[Design] Using base image for session ${activeSession.id}:`, baseImage ? 'latest image' : 'base image');
               
               const prompt = generateEditPrompt(actualChanges, updatedParams);
               const imageUrl = await editImageWithQwen(prompt, baseImage);
@@ -179,7 +181,11 @@ export const appRouter = router({
               });
 
               // 更新设计参数(使用外层已计算好的actualChanges)
-              await updateDesignParameters(currentParams.id, actualChanges);
+              if (Object.keys(actualChanges).length > 0) {
+                await updateDesignParameters(currentParams.id, actualChanges);
+              } else {
+                console.warn('[Design] No parameters to update, skipping database update');
+              }
             } catch (error: any) {
               console.error('[Design] Failed to generate image:', error);
               await updateEditHistory(history.id, {

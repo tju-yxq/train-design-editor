@@ -153,11 +153,12 @@ export function generateEditPrompt(changes: Record<string, any>, allParams: Reco
     return `${desc}: ${value}${unit}`;
   }).join(', ');
 
-  return `在保持完整列车侧视图的基础上,根据以下参数修改车头部分的工程图纸:
+  return `请对这张高铁工程图纸进行局部精确修改。
 
-修改参数: ${changeDescriptions}
+【修改要求】
+只修改以下参数: ${changeDescriptions}
 
-完整参数规格:
+【完整参数规格】
 - 车头总长: ${allParams.headCarTotalLength || allParams.totalLength}mm
 - 车头长度: ${allParams.trainHeadLength}mm
 - 车头高度: ${allParams.trainHeadHeight}mm
@@ -176,15 +177,15 @@ export function generateEditPrompt(changes: Record<string, any>, allParams: Reco
 - 车钩中心高度: ${allParams.couplerHeight}mm
 - 标准轨距: ${allParams.railGauge}mm
 
-重要要求:
-1. 必须保持完整的列车侧视图,包括车头、中间车厢和车尾,不能只显示车头部分
-2. 只修改车头部分的尺寸和形状,保持其他部分不变
-3. 保持工程制图规范,正交投影,无透视
-4. 纯白背景,单色灰度车身
-5. 清晰外部轮廓线,无阴影无反光
-6. 侧视图:连续样条曲线定义轮廓,车窗均匀分布
-7. 保持车头流线型设计
-8. 严格按照给定参数修改图纸`;
+【严格遵守的规则】
+1. **完整性**: 必须保持原图的主体结构 - 包括左侧的正视图、右侧的完整侧视图(车头+车厢+车尾)
+2. **局部修改**: 只对上述“修改要求”中提到的具体部分进行精确调整,其他所有部分完全不变
+3. **禁止缩放**: 不允许对整体图像进行放大或缩小,不允许改变图像布局
+4. **保持视图**: 必须保留原图的正视图和侧视图,不能删除或省略任何一个视图
+5. **工程风格**: 保持工程制图风格 - 正交投影、无透视、纯白背景、灰度车身、清晰轮廓线
+6. **精确尺寸**: 严格按照给定的参数数值进行修改,确保尺寸准确
+
+请在保持原图完整性的基础上,只对指定的部分进行精确修改。`;
 }
 
 /**

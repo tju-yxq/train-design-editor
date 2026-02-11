@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect } from "react";
@@ -167,17 +168,52 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 {parameters ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <ParamItem label="车头长度" value={parameters.trainHeadLength} unit="mm" />
-                    <ParamItem label="车头高度" value={parameters.trainHeadHeight} unit="mm" />
-                    <ParamItem label="驾驶室高度" value={parameters.cabinHeight} unit="mm" />
-                    <ParamItem label="流线型曲率" value={parameters.streamlineCurvature} unit="°" />
-                    <ParamItem label="车窗宽度" value={parameters.windowWidth} unit="mm" />
-                    <ParamItem label="车窗高度" value={parameters.windowHeight} unit="mm" />
-                    <ParamItem label="底盘高度" value={parameters.chassisHeight} unit="mm" />
-                    <ParamItem label="总长度" value={parameters.totalLength} unit="mm" />
-                    <ParamItem label="最大宽度" value={parameters.maxWidth} unit="mm" />
-                  </div>
+                  <Tabs defaultValue="basic" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4">
+                      <TabsTrigger value="basic">基础参数</TabsTrigger>
+                      <TabsTrigger value="head">车头参数</TabsTrigger>
+                      <TabsTrigger value="bogie">转向架</TabsTrigger>
+                      <TabsTrigger value="other">其他</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="basic" className="space-y-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <ParamItem label="车头总长" value={parameters.headCarTotalLength} unit="mm" />
+                        <ParamItem label="最大宽度" value={parameters.maxWidth} unit="mm" />
+                        <ParamItem label="最大高度" value={parameters.maxHeight} unit="mm" />
+                        <ParamItem label="中心距轨面高度" value={parameters.centerToRailHeight} unit="mm" />
+                        <ParamItem label="标准轨距" value={parameters.railGauge} unit="mm" />
+                        <ParamItem label="底盘高度" value={parameters.chassisHeight} unit="mm" />
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="head" className="space-y-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <ParamItem label="车头长度" value={parameters.trainHeadLength} unit="mm" />
+                        <ParamItem label="车头高度" value={parameters.trainHeadHeight} unit="mm" />
+                        <ParamItem label="驾驶室高度" value={parameters.cabinHeight} unit="mm" />
+                        <ParamItem label="流线型曲率" value={parameters.streamlineCurvature} unit="°" />
+                        <ParamItem label="车窗宽度" value={parameters.windowWidth} unit="mm" />
+                        <ParamItem label="车窗高度" value={parameters.windowHeight} unit="mm" />
+                        <ParamItem label="车钩中心高度" value={parameters.couplerHeight} unit="mm" />
+                        <ParamItem label="车头转向架距离" value={parameters.headBogieDistance} unit="mm" />
+                        <ParamItem label="雨刮器长度" value={parameters.wiperLength} unit="mm" />
+                        <ParamItem label="雨刮器角度" value={parameters.wiperAngle} unit="°" />
+                        <ParamItem label="雨刮器位置" value={parameters.wiperPosition} unit="mm" />
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="bogie" className="space-y-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <ParamItem label="转向架轴距" value={parameters.bogieAxleDistance} unit="mm" />
+                        <ParamItem label="转向架中心距" value={parameters.bogieCenterDistance} unit="mm" />
+                        <ParamItem label="轮径" value={parameters.wheelDiameter} unit="mm" />
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="other" className="space-y-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <ParamItem label="横截面位置" value={parameters.crossSectionPosition} unit="mm" />
+                        <ParamItem label="顶部圆弧半径" value={parameters.topArcRadius} unit="mm" />
+                      </div>
+                    </TabsContent>
+                  </Tabs>
                 ) : (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -197,10 +233,10 @@ export default function Home() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <Textarea
-                  placeholder="例如: 将车头长度增加到11米&#10;例如: 车窗宽度改为1.5米,高度改为1米"
+                  placeholder="例如: 将车头长度增加到11米&#10;例如: 车窗宽度改为1.5米,高度改为1米&#10;例如: 转向架轴距改为2.6米"
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
-                  rows={4}
+                  rows={5}
                   className="resize-none"
                 />
                 <Button

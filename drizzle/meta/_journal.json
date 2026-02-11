@@ -15,6 +15,13 @@
       "when": 1770811921051,
       "tag": "0001_big_black_bolt",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1770812704585,
+      "tag": "0002_tense_scalphunter",
+      "breakpoints": true
     }
   ]
 }

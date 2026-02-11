@@ -32,18 +32,41 @@ export type InsertUser = typeof users.$inferInsert;
 export const designParameters = mysqlTable("design_parameters", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("user_id").notNull().references(() => users.id),
-  // 车头几何参数
-  trainHeadLength: int("train_head_length").default(10500).notNull(), // mm
-  trainHeadHeight: int("train_head_height").default(3850).notNull(), // mm
-  cabinHeight: int("cabin_height").default(3850).notNull(), // mm
-  streamlineCurvature: int("streamline_curvature").default(72).notNull(), // 度数
-  windowWidth: int("window_width").default(1200).notNull(), // mm
-  windowHeight: int("window_height").default(800).notNull(), // mm
-  chassisHeight: int("chassis_height").default(1500).notNull(), // mm
-  // 其他参数
-  totalLength: int("total_length").default(28550).notNull(), // mm
-  maxWidth: int("max_width").default(3360).notNull(), // mm
-  maxHeight: int("max_height").default(3850).notNull(), // mm
+  
+  // 1.1 整体几何参数
+  headCarTotalLength: int("head_car_total_length").default(28550).notNull(), // 车头总长 mm
+  maxWidth: int("max_width").default(3360).notNull(), // 最大横截面宽度 mm
+  maxHeight: int("max_height").default(3850).notNull(), // 车辆最大高度 mm
+  centerToRailHeight: int("center_to_rail_height").default(1500).notNull(), // 车辆中心距轨面高度 mm
+  railGauge: int("rail_gauge").default(1435).notNull(), // 标准轨距 mm
+  
+  // 1.2 车头几何参数
+  trainHeadLength: int("train_head_length").default(10500).notNull(), // 车头长度 mm
+  headBogieDistance: int("head_bogie_distance").default(5200).notNull(), // 车头转向架距离 mm
+  couplerHeight: int("coupler_height").default(1000).notNull(), // 车钩中心高度 mm
+  
+  // 1.3 雨刮器系统参数
+  wiperLength: int("wiper_length").default(2100).notNull(), // 雨刮器长度 mm
+  wiperAngle: int("wiper_angle").default(72).notNull(), // 雨刮器安装角度 度
+  wiperPosition: int("wiper_position").default(2200).notNull(), // 车头至雨刮器安装位置 mm
+  
+  // 1.4 转向架参数
+  bogieAxleDistance: int("bogie_axle_distance").default(2500).notNull(), // 转向架轴距 mm
+  bogieCenterDistance: int("bogie_center_distance").default(17800).notNull(), // 转向架中心距 mm
+  wheelDiameter: int("wheel_diameter").default(920).notNull(), // 轮径 mm
+  
+  // 1.5 横截面参数
+  crossSectionPosition: int("cross_section_position").default(10500).notNull(), // 横截面位置 mm
+  topArcRadius: int("top_arc_radius").default(200).notNull(), // 顶部圆弧半径 mm
+  
+  // 其他常用参数
+  trainHeadHeight: int("train_head_height").default(3850).notNull(), // 车头高度 mm
+  cabinHeight: int("cabin_height").default(3850).notNull(), // 驾驶室高度 mm
+  streamlineCurvature: int("streamline_curvature").default(72).notNull(), // 流线型曲率 度
+  windowWidth: int("window_width").default(1200).notNull(), // 车窗宽度 mm
+  windowHeight: int("window_height").default(800).notNull(), // 车窗高度 mm
+  chassisHeight: int("chassis_height").default(1500).notNull(), // 底盘高度 mm
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });

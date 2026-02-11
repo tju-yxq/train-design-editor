@@ -22,18 +22,6 @@ interface QwenPlusResponse {
   };
 }
 
-interface ImageEditRequest {
-  model: string;
-  input: {
-    prompt: string;
-    image_url: string;
-  };
-  parameters?: {
-    size?: string;
-    n?: number;
-  };
-}
-
 interface ImageEditResponse {
   output: {
     results: Array<{
@@ -62,6 +50,15 @@ export async function parseParametersWithQwen(userInput: string): Promise<Record
 - totalLength: 总长度(单位:mm)
 - maxWidth: 最大宽度(单位:mm)
 - maxHeight: 最大高度(单位:mm)
+- wiperLength: 雨刮器长度(单位:mm)
+- wiperAngle: 雨刮器安装角度(单位:度)
+- wiperPosition: 车头至雨刮器安装位置(单位:mm)
+- bogieAxleDistance: 转向架轴距(单位:mm)
+- bogieCenterDistance: 转向架中心距(单位:mm)
+- wheelDiameter: 轮径(单位:mm)
+- couplerHeight: 车钩中心高度(单位:mm)
+- headCarTotalLength: 头车总长(单位:mm)
+- railGauge: 标准轨距(单位:mm)
 
 请将用户输入解析为JSON格式,只包含需要修改的参数。如果用户提到的单位是米,请转换为毫米。
 
@@ -129,55 +126,108 @@ export function generateEditPrompt(changes: Record<string, any>, allParams: Reco
     totalLength: '总长度',
     maxWidth: '最大宽度',
     maxHeight: '最大高度',
+    wiperLength: '雨刮器长度',
+    wiperAngle: '雨刮器安装角度',
+    wiperPosition: '车头至雨刮器安装位置',
+    bogieAxleDistance: '转向架轴距',
+    bogieCenterDistance: '转向架中心距',
+    wheelDiameter: '轮径',
+    couplerHeight: '车钩中心高度',
+    headCarTotalLength: '头车总长',
+    railGauge: '标准轨距',
   };
 
   const changeDescriptions = Object.entries(changes).map(([key, value]) => {
     const desc = paramDescriptions[key] || key;
-    return `${desc}: ${value}mm`;
+    const unit = key.includes('Angle') || key.includes('Curvature') ? '度' : 'mm';
+    return `${desc}: ${value}${unit}`;
   }).join(', ');
 
-  return `[基础规范]
-工程制图,正交投影,无透视,纯白背景,单色灰度车身
-清晰外部轮廓线,无阴影无反光,无运动模糊
-无Logo/文字/装饰纹理/环境元素
+  return `请根据以下参数修改高铁车头工程图纸:
 
-[修改要求]
-修改以下参数: ${changeDescriptions}
+修改参数: ${changeDescriptions}
 
-[几何参数]
-车头总长: ${allParams.totalLength}mm, 最大宽度: ${allParams.maxWidth}mm, 最大高度: ${allParams.maxHeight}mm
-车头长度: ${allParams.trainHeadLength}mm, 车头高度: ${allParams.trainHeadHeight}mm
-驾驶室高度: ${allParams.cabinHeight}mm, 底盘高度: ${allParams.chassisHeight}mm
-车窗宽度: ${allParams.windowWidth}mm, 车窗高度: ${allParams.windowHeight}mm
-流线型曲率: ${allParams.streamlineCurvature}度
+完整参数规格:
+- 车头总长: ${allParams.headCarTotalLength || allParams.totalLength}mm
+- 车头长度: ${allParams.trainHeadLength}mm
+- 车头高度: ${allParams.trainHeadHeight}mm
+- 驾驶室高度: ${allParams.cabinHeight}mm
+- 最大宽度: ${allParams.maxWidth}mm
+- 最大高度: ${allParams.maxHeight}mm
+- 底盘高度: ${allParams.chassisHeight}mm
+- 车窗宽度: ${allParams.windowWidth}mm
+- 车窗高度: ${allParams.windowHeight}mm
+- 流线型曲率: ${allParams.streamlineCurvature}度
+- 雨刮器长度: ${allParams.wiperLength}mm
+- 雨刮器安装角度: ${allParams.wiperAngle}度
+- 转向架轴距: ${allParams.bogieAxleDistance}mm
+- 转向架中心距: ${allParams.bogieCenterDistance}mm
+- 轮径: ${allParams.wheelDiameter}mm
+- 车钩中心高度: ${allParams.couplerHeight}mm
+- 标准轨距: ${allParams.railGauge}mm
 
-[视图约束]
-- 侧视图:连续5段样条曲线定义轮廓,车窗均匀分布
-- 正视图:横截面为顶部圆弧+垂直侧壁的圆角矩形
-- 两视图关键尺寸严格一致
-
-[禁止项]
-无艺术化夸张,无品牌标识,无透视效果
-
-请根据上述参数修改图纸,保持工程制图规范。`;
+要求:
+1. 保持工程制图规范,正交投影,无透视
+2. 纯白背景,单色灰度车身
+3. 清晰外部轮廓线,无阴影无反光
+4. 侧视图:连续样条曲线定义轮廓,车窗均匀分布
+5. 保持车头流线型设计
+6. 严格按照给定参数修改图纸`;
 }
 
 /**
  * 调用Qwen-Image-Edit-Max进行图像编辑
  */
+/**
+ * 下载图片并转换为Base64
+ */
+export async function downloadImageAsBase64(imageUrl: string): Promise<string> {
+  try {
+    const response = await axios.get(imageUrl, {
+      responseType: 'arraybuffer',
+      timeout: 30000,
+    });
+
+    const buffer = Buffer.from(response.data);
+    const base64 = buffer.toString('base64');
+    const mimeType = response.headers['content-type'] || 'image/png';
+    
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error: any) {
+    console.error('[Aliyun] Failed to download image:', error.message);
+    throw new Error(`图片下载失败: ${error.message}`);
+  }
+}
+
 export async function editImageWithQwen(prompt: string, imageUrl: string): Promise<string> {
   try {
+    // 将图片URL转换为Base64
+    console.log('[Aliyun] Downloading image from:', imageUrl);
+    const base64Image = await downloadImageAsBase64(imageUrl);
+    console.log('[Aliyun] Image converted to Base64, size:', base64Image.length);
+
     const response = await axios.post<ImageEditResponse>(
-      `${ALIYUN_API_BASE}/services/aigc/image-generation/generation`,
+      `${ALIYUN_API_BASE}/services/aigc/multimodal-generation/generation`,
       {
-        model: 'qwen-vl-max',
+        model: 'qwen-image-edit-max',
         input: {
-          prompt: prompt,
-          image_url: imageUrl,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  image: base64Image
+                },
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ]
         },
         parameters: {
-          size: '1024*1024',
           n: 1,
+          size: '1536*1024'
         }
       },
       {

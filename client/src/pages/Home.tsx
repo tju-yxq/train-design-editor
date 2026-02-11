@@ -19,10 +19,10 @@ export default function Home() {
   // 获取基础图片
   const { data: baseImageData } = trpc.design.getBaseImage.useQuery();
 
-  // 获取当前参数
-  const { data: parameters } = trpc.design.getParameters.useQuery(
+  // 获取当前参数(每3秒轮询一次,与历史记录同步)
+  const { data: parameters, refetch: refetchParameters } = trpc.design.getParameters.useQuery(
     undefined,
-    { enabled: isAuthenticated }
+    { enabled: isAuthenticated, refetchInterval: 3000 }
   );
 
   // 获取历史记录

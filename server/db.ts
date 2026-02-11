@@ -168,3 +168,21 @@ export async function getEditHistoryById(id: number): Promise<EditHistory | unde
   const result = await db.select().from(editHistory).where(eq(editHistory.id, id)).limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
+
+export async function getLatestSuccessfulImage(userId: number): Promise<string | null> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const { and } = await import('drizzle-orm');
+  const result = await db.select().from(editHistory)
+    .where(and(
+      eq(editHistory.userId, userId),
+      eq(editHistory.status, 'completed')
+    ))
+    .orderBy(desc(editHistory.createdAt))
+    .limit(1);
+  
+  return result.length > 0 && result[0]?.generatedImageUrl ? result[0].generatedImageUrl : null;
+}

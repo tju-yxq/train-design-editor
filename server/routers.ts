@@ -9,7 +9,8 @@ import {
   createEditHistory, 
   updateEditHistory, 
   getUserEditHistory,
-  getEditHistoryById 
+  getEditHistoryById,
+  getLatestSuccessfulImage
 } from "./db";
 import { parseParametersWithQwen, generateEditPrompt, editImageWithQwen } from "./aliyun";
 import { ENV } from "./_core/env";
@@ -113,8 +114,12 @@ export const appRouter = router({
           // 6. 异步生成图片
           (async () => {
             try {
+              // 获取最新成功生成的图片，如果没有则使用基础图片
+              const latestImage = await getLatestSuccessfulImage(ctx.user.id);
+              const baseImage = latestImage || ENV.baseImageUrl;
+              
               const prompt = generateEditPrompt(actualChanges, updatedParams);
-              const imageUrl = await editImageWithQwen(prompt, ENV.baseImageUrl);
+              const imageUrl = await editImageWithQwen(prompt, baseImage);
 
               // 更新历史记录
               await updateEditHistory(history.id, {

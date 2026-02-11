@@ -2,6 +2,7 @@ import axios from 'axios';
 import { ENV } from './_core/env';
 
 const ALIYUN_API_BASE = 'https://dashscope.aliyuncs.com/api/v1';
+const IMAGE_EDIT_MODEL = 'qwen-image-edit-max';
 
 interface QwenPlusMessage {
   role: 'system' | 'user' | 'assistant';
@@ -24,13 +25,22 @@ interface QwenPlusResponse {
 
 interface ImageEditResponse {
   output: {
-    results: Array<{
-      url: string;
+    choices: Array<{
+      finish_reason: string;
+      message: {
+        role: string;
+        content: Array<{
+          image: string;
+        }>;
+      };
     }>;
   };
   usage: {
+    height: number;
+    width: number;
     image_count: number;
   };
+  request_id: string;
 }
 
 /**
@@ -89,7 +99,7 @@ export async function parseParametersWithQwen(userInput: string): Promise<Record
       },
       {
         headers: {
-          'Authorization': `Bearer ${ENV.aliyunApiKey}`,
+          'Authorization': `Bearer ${ENV.aliyunImageApiKey}`,
           'Content-Type': 'application/json',
         },
         timeout: 30000,
@@ -209,7 +219,7 @@ export async function editImageWithQwen(prompt: string, imageUrl: string): Promi
     const response = await axios.post<ImageEditResponse>(
       `${ALIYUN_API_BASE}/services/aigc/multimodal-generation/generation`,
       {
-        model: 'qwen-image-edit-max',
+        model: IMAGE_EDIT_MODEL,
         input: {
           messages: [
             {
@@ -232,18 +242,21 @@ export async function editImageWithQwen(prompt: string, imageUrl: string): Promi
       },
       {
         headers: {
-          'Authorization': `Bearer ${ENV.aliyunApiKey}`,
+          'Authorization': `Bearer ${ENV.aliyunImageApiKey}`,
           'Content-Type': 'application/json',
         },
         timeout: 60000,
       }
     );
 
-    const resultUrl = response.data.output.results[0]?.url;
+    // 根据阿里云文档,响应格式为 output.choices[0].message.content[0].image
+    const resultUrl = response.data.output?.choices?.[0]?.message?.content?.[0]?.image;
     if (!resultUrl) {
+      console.error('[Aliyun] Unexpected response format:', JSON.stringify(response.data, null, 2));
       throw new Error('未能生成图片');
     }
 
+    console.log('[Aliyun] Image generated successfully:', resultUrl);
     return resultUrl;
   } catch (error: any) {
     console.error('[Aliyun] Failed to edit image:', error.response?.data || error.message);

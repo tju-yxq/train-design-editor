@@ -8,5 +8,6 @@ export const ENV = {
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   aliyunApiKey: process.env.ALIYUN_API_KEY ?? "",
+  aliyunImageApiKey: process.env.ALIYUN_IMAGE_API_KEY ?? "",
   baseImageUrl: process.env.BASE_IMAGE_URL ?? "",
 };

@@ -912,7 +912,7 @@ SOFTWARE.
 
 **Built with ❤️ by Train Design Editor Team**
 
-[GitHub](https://github.com/your-org/train-design-editor) | [Issues](https://github.com/your-org/train-design-editor/issues) | [Documentation](https://docs.example.com)
+[GitHub](https://github.com/tju-yxq/train-design-editor) | [Issues](https://github.com/tju-yxq/train-design-editor/issues) | [Discussions](https://github.com/tju-yxq/train-design-editor/discussions)
 
 </div>
 

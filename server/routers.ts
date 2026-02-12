@@ -1,4 +1,4 @@
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
@@ -6,12 +6,19 @@ import { z } from "zod";
 import { getOrCreateDesignParameters, updateDesignParameters, createEditHistory, updateEditHistory, getUserEditHistory, getEditHistoryById, getLatestSuccessfulImage, createDesignSession, getUserSessions, getActiveSession, setActiveSession, getSessionHistory } from './db';
 import { parseParametersWithQwen, generateEditPrompt, editImageWithQwen } from "./aliyun";
 import { ENV } from "./_core/env";
+import { registerUser, validateLogin } from "./auth";
+import { sdk } from "./_core/sdk";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query(opts => {
+      if (!opts.ctx.user) return null;
+      // 不要返回密码哈希
+      const { password: _, ...safeUser } = opts.ctx.user;
+      return safeUser;
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -19,6 +26,50 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+    // 本地注册
+    register: publicProcedure
+      .input(z.object({
+        username: z.string().min(3).max(64),
+        password: z.string().min(6).max(100),
+        name: z.string().optional(),
+        email: z.string().email().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const user = await registerUser(input.username, input.password, input.name, input.email);
+        
+        // 创建 session token
+        const sessionToken = await sdk.createSessionToken(String(user.id), {
+          name: user.name || input.username,
+          expiresInMs: ONE_YEAR_MS,
+        });
+
+        // 设置 cookie
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+
+        return { success: true, user };
+      }),
+    // 本地登录
+    login: publicProcedure
+      .input(z.object({
+        username: z.string(),
+        password: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const user = await validateLogin(input.username, input.password);
+        
+        // 创建 session token
+        const sessionToken = await sdk.createSessionToken(String(user.id), {
+          name: user.name || input.username,
+          expiresInMs: ONE_YEAR_MS,
+        });
+
+        // 设置 cookie
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+
+        return { success: true, user };
+      }),
   }),
 
   design: router({
@@ -119,6 +170,11 @@ export const appRouter = router({
 
           // 3. 解析用户输入
           const parsedChanges = await parseParametersWithQwen(input.userInput);
+
+          // 检查解析结果是否为空
+          if (Object.keys(parsedChanges).length === 0) {
+            throw new Error('抱歉，无法理解您的需求。当前系统支持修改：\n1. 几何参数：长度、高度、宽度、直径等尺寸\n2. 位置参数：部件的前后位置、上下高度等\n3. 角度参数：流线型曲率、安装角度等\n\n不支持：颜色、材质、纹理等外观属性。\n\n请描述具体的尺寸或位置调整需求，例如："将车窗向后移动500mm"、"提高底盘高度至1600mm"。');
+          }
 
           // 4. 计算实际参数值(处理相对变化)
           const actualChanges: Record<string, any> = {};

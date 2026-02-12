@@ -5,14 +5,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect } from "react";
 import { Loader2, Send, History, Image as ImageIcon, ArrowRight, Sparkles, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Home() {
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const { user, loading: authLoading, isAuthenticated } = useAuth({ redirectOnUnauthenticated: true });
   const [userInput, setUserInput] = useState("");
   const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
   const [showNewSessionDialog, setShowNewSessionDialog] = useState(false);
@@ -130,7 +129,7 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <Button className="w-full" size="lg" asChild>
-              <a href={getLoginUrl()}>
+              <a href="/login">
                 登录开始使用
                 <ArrowRight className="ml-2 w-4 h-4" />
               </a>

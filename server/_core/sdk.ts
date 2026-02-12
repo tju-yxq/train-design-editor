@@ -19,7 +19,8 @@ const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
 
 export type SessionPayload = {
-  openId: string;
+  userId: string;  // 使用 userId 替代 openId，兼容本地登录
+  openId?: string;  // 保持 openId 用于 OAuth
   appId: string;
   name: string;
 };
@@ -160,17 +161,18 @@ class SDKServer {
   }
 
   /**
-   * Create a session token for a Manus user openId
+   * Create a session token for a user
    * @example
-   * const sessionToken = await sdk.createSessionToken(userInfo.openId);
+   * const sessionToken = await sdk.createSessionToken(String(user.id), { name: user.name });
    */
   async createSessionToken(
-    openId: string,
-    options: { expiresInMs?: number; name?: string } = {}
+    userId: string,
+    options: { expiresInMs?: number; name?: string; openId?: string } = {}
   ): Promise<string> {
     return this.signSession(
       {
-        openId,
+        userId,
+        openId: options.openId,
         appId: ENV.appId,
         name: options.name || "",
       },
@@ -188,6 +190,7 @@ class SDKServer {
     const secretKey = this.getSessionSecret();
 
     return new SignJWT({
+      userId: payload.userId,
       openId: payload.openId,
       appId: payload.appId,
       name: payload.name,
@@ -199,7 +202,7 @@ class SDKServer {
 
   async verifySession(
     cookieValue: string | undefined | null
-  ): Promise<{ openId: string; appId: string; name: string } | null> {
+  ): Promise<{ userId: string; openId?: string; appId: string; name: string } | null> {
     if (!cookieValue) {
       console.warn("[Auth] Missing session cookie");
       return null;
@@ -210,10 +213,10 @@ class SDKServer {
       const { payload } = await jwtVerify(cookieValue, secretKey, {
         algorithms: ["HS256"],
       });
-      const { openId, appId, name } = payload as Record<string, unknown>;
+      const { userId, openId, appId, name } = payload as Record<string, unknown>;
 
       if (
-        !isNonEmptyString(openId) ||
+        !isNonEmptyString(userId) ||
         !isNonEmptyString(appId) ||
         !isNonEmptyString(name)
       ) {
@@ -222,7 +225,8 @@ class SDKServer {
       }
 
       return {
-        openId,
+        userId,
+        openId: typeof openId === 'string' ? openId : undefined,
         appId,
         name,
       };
@@ -266,12 +270,19 @@ class SDKServer {
       throw ForbiddenError("Invalid session cookie");
     }
 
-    const sessionUserId = session.openId;
+    const sessionUserId = parseInt(session.userId);
     const signedInAt = new Date();
-    let user = await db.getUserByOpenId(sessionUserId);
+    
+    // 先尝试通过用户 ID 查找（本地登录）
+    let user = await db.getUserById(sessionUserId);
+    
+    // 如果没找到且有 openId，尝试通过 openId 查找（OAuth 登录）
+    if (!user && session.openId) {
+      user = await db.getUserByOpenId(session.openId);
+    }
 
-    // If user not in DB, sync from OAuth server automatically
-    if (!user) {
+    // 如果user仍然不存在且有openId，尝试从OAuth服务器同步
+    if (!user && session.openId) {
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
         await db.upsertUser({
@@ -292,10 +303,13 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
-    await db.upsertUser({
-      openId: user.openId,
-      lastSignedIn: signedInAt,
-    });
+    // 更新最后登录时间
+    if (user.openId) {
+      await db.upsertUser({
+        openId: user.openId,
+        lastSignedIn: signedInAt,
+      });
+    }
 
     return user;
   }

@@ -22,6 +22,13 @@
       "when": 1770812704585,
       "tag": "0002_tense_scalphunter",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1770884702997,
+      "tag": "0003_ambiguous_blizzard",
+      "breakpoints": true
     }
   ]
 }

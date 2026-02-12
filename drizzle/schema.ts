@@ -11,8 +11,12 @@ export const users = mysqlTable("users", {
    * Use this for relations between tables.
    */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
-  openId: varchar("openId", { length: 64 }).notNull().unique(),
+  /** Manus OAuth identifier (openId) returned from the OAuth callback. Optional for local auth. */
+  openId: varchar("openId", { length: 64 }).unique(),
+  /** Username for local authentication */
+  username: varchar("username", { length: 64 }).unique(),
+  /** Password hash for local authentication */
+  password: varchar("password", { length: 255 }),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
@@ -62,7 +66,7 @@ export const designParameters = mysqlTable("design_parameters", {
   // 其他常用参数
   trainHeadHeight: int("train_head_height").default(3850).notNull(), // 车头高度 mm
   cabinHeight: int("cabin_height").default(3850).notNull(), // 驾驶室高度 mm
-  streamlineCurvature: int("streamline_curvature").default(72).notNull(), // 流线型曲率 度
+  streamlineCurvature: int("streamline_curvature").default(72).notNull(), // 流线型曲率度
   windowWidth: int("window_width").default(1200).notNull(), // 车窗宽度 mm
   windowHeight: int("window_height").default(800).notNull(), // 车窗高度 mm
   chassisHeight: int("chassis_height").default(1500).notNull(), // 底盘高度 mm

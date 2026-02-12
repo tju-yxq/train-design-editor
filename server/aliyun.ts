@@ -50,25 +50,39 @@ export async function parseParametersWithQwen(userInput: string): Promise<Record
   const systemPrompt = `你是一个高铁车头设计参数解析助手。用户会用中文描述对车头设计的修改需求,你需要将其转换为结构化的参数变更。
 
 支持的参数包括:
+
+【几何尺寸参数】
 - trainHeadLength: 车头长度(单位:mm)
 - trainHeadHeight: 车头高度(单位:mm)
 - cabinHeight: 驾驶室高度(单位:mm)
-- streamlineCurvature: 流线型曲率(单位:度)
-- windowWidth: 车窗宽度(单位:mm)
-- windowHeight: 车窗高度(单位:mm)
-- chassisHeight: 底盘高度(单位:mm)
 - totalLength: 总长度(单位:mm)
+- headCarTotalLength: 头车总长(单位:mm)
 - maxWidth: 最大宽度(单位:mm)
 - maxHeight: 最大高度(单位:mm)
+- windowWidth: 车窗宽度(单位:mm)
+- windowHeight: 车窗高度(单位:mm)
+- wheelDiameter: 轮径(单位:mm)
 - wiperLength: 雨刮器长度(单位:mm)
+
+【位置参数】
+- chassisHeight: 底盘高度/离地距离(单位:mm)
+- couplerHeight: 车钩中心高度(单位:mm)
+- wiperPosition: 车头至雨刮器安装位置/雨刮器前后位置(单位:mm)
+- crossSectionPosition: 横截面位置(单位:mm)
+- centerToRailHeight: 车辆中心距轨面高度(单位:mm)
+
+【角度参数】
+- streamlineCurvature: 流线型曲率(单位:度)
 - wiperAngle: 雨刮器安装角度(单位:度)
-- wiperPosition: 车头至雨刮器安装位置(单位:mm)
+
+【转向架参数】
 - bogieAxleDistance: 转向架轴距(单位:mm)
 - bogieCenterDistance: 转向架中心距(单位:mm)
-- wheelDiameter: 轮径(单位:mm)
-- couplerHeight: 车钩中心高度(单位:mm)
-- headCarTotalLength: 头车总长(单位:mm)
+- headBogieDistance: 车头转向架距离(单位:mm)
+
+【其他参数】
 - railGauge: 标准轨距(单位:mm)
+- topArcRadius: 顶部圆弧半径(单位:mm)
 
 请将用户输入解析为JSON格式,只包含需要修改的参数。如果用户提到的单位是米,请转换为毫米。
 
@@ -78,6 +92,17 @@ export async function parseParametersWithQwen(userInput: string): Promise<Record
 
 用户输入: "车窗宽度改为1.5米,高度改为1米"
 输出: {"windowWidth": 1500, "windowHeight": 1000}
+
+用户输入: "把雨刮器向后移动200mm"
+输出: {"wiperPosition": "+200"}
+
+用户输入: "提高底盘高度到1600mm"
+输出: {"chassisHeight": 1600}
+
+用户输入: "车钩位置向上调整100mm"
+输出: {"couplerHeight": "+100"}
+
+注意: 位置调整可以用绝对值(如1600)或相对值(如"+200"表示增加,"-100"表示减少)。
 
 只返回JSON对象,不要包含任何其他文字说明。`;
 
@@ -132,19 +157,23 @@ export function generateEditPrompt(changes: Record<string, any>, allParams: Reco
     streamlineCurvature: '流线型曲率',
     windowWidth: '车窗宽度',
     windowHeight: '车窗高度',
-    chassisHeight: '底盘高度',
+    chassisHeight: '底盘离地高度',
     totalLength: '总长度',
     maxWidth: '最大宽度',
     maxHeight: '最大高度',
     wiperLength: '雨刮器长度',
     wiperAngle: '雨刮器安装角度',
-    wiperPosition: '车头至雨刮器安装位置',
+    wiperPosition: '雨刮器前后位置',
     bogieAxleDistance: '转向架轴距',
     bogieCenterDistance: '转向架中心距',
     wheelDiameter: '轮径',
-    couplerHeight: '车钩中心高度',
+    couplerHeight: '车钩高度位置',
     headCarTotalLength: '头车总长',
     railGauge: '标准轨距',
+    crossSectionPosition: '横截面位置',
+    centerToRailHeight: '车辆中心高度',
+    headBogieDistance: '车头转向架距离',
+    topArcRadius: '顶部圆弧半径',
   };
 
   const changeDescriptions = Object.entries(changes).map(([key, value]) => {

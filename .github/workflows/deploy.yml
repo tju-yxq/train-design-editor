@@ -1,0 +1,50 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      - name: TypeScript Check
+        run: pnpm run check
+      
+      - name: Create .env file
+        run: |
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+          echo "VITE_APP_ID=${{ secrets.VITE_APP_ID || 'train-design-editor' }}" >> .env
+          echo "OAUTH_SERVER_URL=${{ secrets.OAUTH_SERVER_URL }}" >> .env
+          echo "NODE_ENV=production" >> .env
+      
+      - name: Build
+        run: pnpm run build
+        env:
+          NODE_ENV: production
+      
+      - name: Run Tests
+        run: pnpm run test
+        if: success()

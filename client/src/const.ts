@@ -4,6 +4,13 @@ export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 export const getLoginUrl = () => {
   const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
   const appId = import.meta.env.VITE_APP_ID;
+  
+  // 本地开发模式：没有配置 OAuth 时返回占位符
+  if (!oauthPortalUrl || oauthPortalUrl.trim() === "") {
+    console.warn("[Auth] OAuth not configured, using local mode");
+    return "#/login-not-configured";
+  }
+  
   const redirectUri = `${window.location.origin}/api/oauth/callback`;
   const state = btoa(redirectUri);
 

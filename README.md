@@ -1,8 +1,6 @@
-# 🚄 Train Design Editor
-
 <div align="center">
 
-## **智能高铁车头设计编辑系统**
+## 🚄 Train Design Editor
 
 ## 基于 AI 大模型的参数化工程设计平台
 

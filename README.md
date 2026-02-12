@@ -1,6 +1,6 @@
 <div align="center">
 
-## 🚄 Train Design Editor
+# 🚄 Train Design Editor
 
 ## 基于 AI 大模型的参数化工程设计平台
 

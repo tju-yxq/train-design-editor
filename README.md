@@ -2,16 +2,15 @@
 
 <div align="center">
 
-**智能高铁车头设计编辑系统**
+## **智能高铁车头设计编辑系统**
 
-基于 AI 大模型的参数化工程设计平台
+## 基于 AI 大模型的参数化工程设计平台
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://reactjs.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 
-[English](./README.md) | [简体中文](./README.zh-CN.md)
 
 </div>
 
@@ -936,6 +935,4 @@ SOFTWARE.
 MIT
 
 ---
-
-**需要帮助？** 查看 [DEPLOY.md](DEPLOY.md) 获取详细部署指南。
 

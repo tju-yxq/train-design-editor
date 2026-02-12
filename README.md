@@ -915,22 +915,4 @@ SOFTWARE.
 [GitHub](https://github.com/your-org/train-design-editor) | [Issues](https://github.com/your-org/train-design-editor/issues) | [Documentation](https://docs.example.com)
 
 </div>
-│   └── public/
-├── server/              # 后端 Express 服务器
-│   ├── _core/           # 核心功能
-│   └── routers.ts       # API 路由
-├── drizzle/             # 数据库 Schema 和迁移
-├── shared/              # 前后端共享代码
-└── ...
-```
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-## 📄 License
-
-MIT
-
----
 
